@@ -120,7 +120,7 @@ public class AuthenticationService {
         if (otpEntity.getUsedAt() == null) {
             throw new RuntimeException("Please verify your security code before resetting your password.");
         }
-        throw new RuntimeException("This code has expired for security reasons. Please request a new one.");
+
         User user = userRepo.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         user.setPassword(passwordEncoder.encode(newPassword));
