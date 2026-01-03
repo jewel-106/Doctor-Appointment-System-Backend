@@ -17,36 +17,36 @@ public class DoctorTimeSlotService {
     }
 
     public List<DoctorTimeSlot> getAvailableSlotsByDate(Long doctorId, LocalDate date) {
-        List<DoctorTimeSlot> slots = timeSlotRepo.findByDoctorIdAndAvailableDateAndIsBookedFalse(doctorId, date);
-        // Also fetch booked slots to ensure we have the complete picture
-        // Note: The repository method name
-        // 'findByDoctorIdAndAvailableDateAndIsBookedFalse' implies we only get free
-        // slots.
-        // We should actually fetch ALL slots for the date to correctly determine status
-        // if duplicates exist.
-        // But since we can't easily change the repo method call without checking if
-        // 'findByDoctorIdAndAvailableDate' exists or creating it,
-        // Let's first check if we have a method for that.
-        // Looking at the repo file content previously read:
-        // findByDoctorIdAndAvailableDateAndStartTime exists.
-        // But we want ALL for a date.
-        // Let's assume we need to fix the repository fetching first or work with what
-        // we have.
-        // Wait, if we only fetch "IsBookedFalse", we will NEVER see the booked ones to
-        // merge them!
-        // So the UI sees "Free" because we explicitly asked for "Free".
-        // The duplicate issue is: We likely have multiple "Free" slots.
-        // BUT if the error is "Already Taken", it means an Appointment exists.
-        // If an Appointment exists, there SHOULD be a Booked slot.
-        // If we only query "IsBookedFalse", we hide the Booked slot and show the Free
-        // duplicate.
-        // FIX: We must query ALL slots for the date (Booked AND Free).
+        // Fetch ALL slots (both Booked and Free) to handle duplicates correctly
+        List<DoctorTimeSlot> allSlots = timeSlotRepo.findByDoctorIdAndAvailableDate(doctorId, date);
 
-        // Let's use a repository method that finds all by Doctor and Date.
-        // Looking at repo: findByDoctorIdAndAvailableDateAndIsBookedFalse is there.
-        // We need 'findByDoctorIdAndAvailableDate'.
-        // I need to add this method to the Repository first.
-        return slots; // Placeholder to stop this tool call and switch to adding repo method.
+        // Map start time to slots
+        java.util.Map<java.time.LocalTime, List<DoctorTimeSlot>> slotsByTime = allSlots.stream()
+                .collect(java.util.stream.Collectors.groupingBy(DoctorTimeSlot::getStartTime));
+
+        List<DoctorTimeSlot> consolidatedSlots = new java.util.ArrayList<>();
+
+        for (java.util.Map.Entry<java.time.LocalTime, List<DoctorTimeSlot>> entry : slotsByTime.entrySet()) {
+            List<DoctorTimeSlot> timeSlots = entry.getValue();
+
+            // Check if ANY slot at this time is booked
+            boolean isAnyBooked = timeSlots.stream().anyMatch(DoctorTimeSlot::getIsBooked);
+
+            // Pick the first slot as base
+            DoctorTimeSlot baseSlot = timeSlots.get(0);
+
+            // If any is booked, enforce booked status on the returned object so UI sees it
+            if (isAnyBooked) {
+                baseSlot.setIsBooked(true);
+            }
+
+            consolidatedSlots.add(baseSlot);
+        }
+
+        // Sort by time
+        consolidatedSlots.sort(java.util.Comparator.comparing(DoctorTimeSlot::getStartTime));
+
+        return consolidatedSlots;
     }
 
     public List<DoctorTimeSlot> getAllSlots(Long doctorId) {
