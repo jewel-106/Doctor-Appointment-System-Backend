@@ -70,10 +70,10 @@ public class AppointmentService {
                 request.getDoctorId(), request.getAppointmentDate(), request.getAppointmentTime())) {
             throw new RuntimeException("This time slot is already taken. Please choose another convenient time.");
         }
-        java.util.Optional<DoctorTimeSlot> slotOpt = slotRepo.findByDoctorIdAndAvailableDateAndStartTime(
+        List<DoctorTimeSlot> slots = slotRepo.findByDoctorIdAndAvailableDateAndStartTime(
                 request.getDoctorId(), request.getAppointmentDate(), request.getAppointmentTime());
-        if (slotOpt.isPresent()) {
-            var slot = slotOpt.get();
+        if (!slots.isEmpty()) {
+            var slot = slots.get(0);
             if (slot.getIsBooked()) {
                 throw new RuntimeException("Apologies, this specialist is fully booked for the selected time.");
             }
