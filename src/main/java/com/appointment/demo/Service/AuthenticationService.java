@@ -1,4 +1,3 @@
-
 package com.appointment.demo.Service;
 
 import com.appointment.demo.Repository.DoctorRepository;
@@ -17,7 +16,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
 import java.time.LocalDateTime;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -25,7 +23,6 @@ import java.util.concurrent.ThreadLocalRandom;
 @RequiredArgsConstructor
 @Transactional
 public class AuthenticationService {
-
     private final UserRepository userRepo;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -35,7 +32,7 @@ public class AuthenticationService {
 
     public AuthResponse register(RegisterRequest request) {
         if (userRepo.findByEmail(request.email()).isPresent()) {
-            throw new RuntimeException("Email already exists");
+            throw new RuntimeException("It looks like this email is already registered. Try logging in instead!");
         }
         var user = User.builder()
                 .name(request.name())
@@ -47,35 +44,33 @@ public class AuthenticationService {
                 .build();
         userRepo.save(user);
         var jwt = jwtService.generateToken(user);
-        
         Long profileId = null;
         if (user.getRole() == Role.DOCTOR) {
-             // Try to find if a doctor record exists (unlikely on fresh register but consistent)
-             var doctor = doctorRepo.findByUserId(user.getId()).orElse(null);
-             if (doctor != null) profileId = doctor.getId();
+            var doctor = doctorRepo.findByUserId(user.getId()).orElse(null);
+            if (doctor != null)
+                profileId = doctor.getId();
         }
-
-        return new AuthResponse(jwt, user.getName(), user.getEmail(), user.getRole(), user.getPhone(), 
-                user.getAvatar(), user.getId(), profileId, user.getAddress(), user.getBio(), 
-                user.getGender(), user.getDateOfBirth(), user.getHospital() != null ? user.getHospital().getId() : null, user.getSpecialty());
+        return new AuthResponse(jwt, user.getName(), user.getEmail(), user.getRole(), user.getPhone(),
+                user.getAvatar(), user.getId(), profileId, user.getAddress(), user.getBio(),
+                user.getGender(), user.getDateOfBirth(), user.getHospital() != null ? user.getHospital().getId() : null,
+                user.getSpecialty());
     }
 
     public AuthResponse login(LoginRequest request) {
         authManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.email(), request.password())
-        );
+                new UsernamePasswordAuthenticationToken(request.email(), request.password()));
         var user = userRepo.findByEmail(request.email()).orElseThrow();
         var jwt = jwtService.generateToken(user);
-        
         Long profileId = null;
         if (user.getRole() == Role.DOCTOR) {
-             var doctor = doctorRepo.findByUserId(user.getId()).orElse(null);
-             if (doctor != null) profileId = doctor.getId();
+            var doctor = doctorRepo.findByUserId(user.getId()).orElse(null);
+            if (doctor != null)
+                profileId = doctor.getId();
         }
-
-        return new AuthResponse(jwt, user.getName(), user.getEmail(), user.getRole(), user.getPhone(), 
-                user.getAvatar(), user.getId(), profileId, user.getAddress(), user.getBio(), 
-                user.getGender(), user.getDateOfBirth(), user.getHospital() != null ? user.getHospital().getId() : null, user.getSpecialty());
+        return new AuthResponse(jwt, user.getName(), user.getEmail(), user.getRole(), user.getPhone(),
+                user.getAvatar(), user.getId(), profileId, user.getAddress(), user.getBio(),
+                user.getGender(), user.getDateOfBirth(), user.getHospital() != null ? user.getHospital().getId() : null,
+                user.getSpecialty());
     }
 
     private String generateOtp() {
@@ -85,11 +80,10 @@ public class AuthenticationService {
     @Transactional
     public void sendForgotPasswordOtp(String email) {
         User user = userRepo.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
+                .orElseThrow(
+                        () -> new RuntimeException("We couldn't find an account associated with this email address."));
         String otp = generateOtp();
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(500);
-
         otpRepo.deleteByEmail(email);
         otpRepo.flush();
         OtpStore otpEntity = OtpStore.builder()
@@ -99,7 +93,6 @@ public class AuthenticationService {
                 .expiresAt(expiresAt)
                 .build();
         otpRepo.saveAndFlush(otpEntity);
-
         System.out.println("EMAIL OTP for " + email + " → " + otp);
         System.out.println("PHONE OTP for " + user.getPhone() + " → " + otp);
     }
@@ -107,21 +100,16 @@ public class AuthenticationService {
     @Transactional
     public void verifyResetOtp(String email, String otpInput) {
         otpInput = otpInput.trim();
-
         OtpStore otpEntity = otpRepo.findByEmailAndUsedAtIsNull(email)
-                .orElseThrow(() -> new RuntimeException("No active OTP found or already used"));
-
+                .orElseThrow(() -> new RuntimeException("No active code found. Please request a new one."));
         if (!otpEntity.getOtp().equals(otpInput)) {
-            throw new RuntimeException("Wrong OTP entered");
+            throw new RuntimeException("The code you entered doesn't match. Please double-check it.");
         }
-
         if (LocalDateTime.now().isAfter(otpEntity.getExpiresAt())) {
-            throw new RuntimeException("OTP has expired");
+            throw new RuntimeException("This code has expired for security reasons. Please request a new one.");
         }
-
         otpEntity.setUsedAt(LocalDateTime.now());
         otpRepo.saveAndFlush(otpEntity);
-
         System.out.println("OTP verified successfully for: " + email);
     }
 
@@ -129,24 +117,16 @@ public class AuthenticationService {
     public void resetPassword(String email, String newPassword) {
         OtpStore otpEntity = otpRepo.findTopByEmailOrderByExpiresAtDesc(email)
                 .orElseThrow(() -> new RuntimeException("No OTP found for this email"));
-
         if (otpEntity.getUsedAt() == null) {
-            throw new RuntimeException("Please verify OTP first");
+            throw new RuntimeException("Please verify your security code before resetting your password.");
         }
-
-        if (LocalDateTime.now().isAfter(otpEntity.getExpiresAt())) {
-            throw new RuntimeException("OTP has expired");
-        }
-
+        throw new RuntimeException("This code has expired for security reasons. Please request a new one.");
         User user = userRepo.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepo.saveAndFlush(user);
-
         otpRepo.delete(otpEntity);
         otpRepo.flush();
-
         System.out.println("Password reset successful for: " + email);
     }
 
@@ -155,15 +135,13 @@ public class AuthenticationService {
     }
 
     @Transactional
-    public AuthResponse updateProfile(String currentEmail, String newName, String newEmail, String newPhone, 
-                                     String address, String bio, String gender, String dateOfBirth, String specialty) {
+    public AuthResponse updateProfile(String currentEmail, String newName, String newEmail, String newPhone,
+            String address, String bio, String gender, String dateOfBirth, String specialty) {
         User user = userRepo.findByEmail(currentEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        
+                .orElseThrow(() -> new RuntimeException("We couldn't verify your current account details."));
         if (!currentEmail.equals(newEmail) && userRepo.findByEmail(newEmail).isPresent()) {
-            throw new RuntimeException("Email already exists");
+            throw new RuntimeException("This email address is already in use by another person.");
         }
-        
         user.setName(newName);
         user.setEmail(newEmail);
         user.setPhone(newPhone);
@@ -175,29 +153,26 @@ public class AuthenticationService {
             user.setSpecialty(specialty);
         }
         userRepo.saveAndFlush(user);
-        
         var jwt = jwtService.generateToken(user);
         System.out.println("Profile updated for: " + newEmail);
-        
         Long profileId = null;
         if (user.getRole() == Role.DOCTOR) {
-             var doctor = doctorRepo.findByUserId(user.getId()).orElse(null);
-             if (doctor != null) profileId = doctor.getId();
+            var doctor = doctorRepo.findByUserId(user.getId()).orElse(null);
+            if (doctor != null)
+                profileId = doctor.getId();
         }
-
-        return new AuthResponse(jwt, user.getName(), user.getEmail(), user.getRole(), user.getPhone(), 
-                user.getAvatar(), user.getId(), profileId, user.getAddress(), user.getBio(), 
-                user.getGender(), user.getDateOfBirth(), user.getHospital() != null ? user.getHospital().getId() : null, user.getSpecialty());
+        return new AuthResponse(jwt, user.getName(), user.getEmail(), user.getRole(), user.getPhone(),
+                user.getAvatar(), user.getId(), profileId, user.getAddress(), user.getBio(),
+                user.getGender(), user.getDateOfBirth(), user.getHospital() != null ? user.getHospital().getId() : null,
+                user.getSpecialty());
     }
 
     @Transactional
     public void updateAvatar(String email, String avatar) {
         User user = userRepo.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        
         user.setAvatar(avatar);
         userRepo.saveAndFlush(user);
-        
         System.out.println("Avatar updated for: " + email);
     }
 
@@ -205,15 +180,12 @@ public class AuthenticationService {
     public void changePassword(String email, String currentPassword, String newPassword) {
         User user = userRepo.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
             System.out.println("Password mismatch for user: " + email);
-            throw new RuntimeException("Current password is incorrect");
+            throw new RuntimeException("The current password you entered is incorrect. Please try again.");
         }
-        
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepo.saveAndFlush(user);
-        
         System.out.println("Password changed for: " + email);
     }
 }

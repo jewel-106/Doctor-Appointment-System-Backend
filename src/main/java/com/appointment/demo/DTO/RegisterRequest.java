@@ -1,8 +1,5 @@
-
 package com.appointment.demo.DTO;
-
 import com.appointment.demo.model.Role;
-
 public record RegisterRequest(
         String name,
         String email,

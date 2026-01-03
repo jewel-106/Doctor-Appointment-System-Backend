@@ -1,5 +1,4 @@
 package com.appointment.demo.DTO;
-
 public record SystemStats(
     long totalHospitals,
     long totalAdmins,

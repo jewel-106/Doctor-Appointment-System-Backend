@@ -1,7 +1,5 @@
 package com.appointment.demo.DTO;
-
 import com.appointment.demo.model.Role;
-
 public record AuthResponse(
         String token,
         String name,

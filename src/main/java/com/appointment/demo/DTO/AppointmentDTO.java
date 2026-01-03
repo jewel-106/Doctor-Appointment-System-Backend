@@ -1,11 +1,8 @@
 package com.appointment.demo.DTO;
-
 import com.appointment.demo.model.Appointment.Status;
 import java.time.LocalDate;
 import java.time.LocalTime;
-
 public class AppointmentDTO {
-
     public record Request(
             String patientName,
             String patientEmail,
@@ -16,7 +13,6 @@ public class AppointmentDTO {
             Status status,
             String notes
     ) {}
-
     public record Response(
             Long id,
             String patientName,
