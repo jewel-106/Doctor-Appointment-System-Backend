@@ -47,6 +47,11 @@ public class AppointmentService {
         } else {
             appointments = appointmentRepo.findByPatientEmail(email);
         }
+        if (appointments != null) {
+            appointments.sort(java.util.Comparator.comparing(Appointment::getAppointmentDate)
+                    .thenComparing(Appointment::getAppointmentTime)
+                    .reversed());
+        }
         return appointments.stream()
                 .map(this::toResponse)
                 .toList();
@@ -88,6 +93,11 @@ public class AppointmentService {
     public AppointmentResponse update(Long id, Appointment request, String email) {
         Appointment existing = appointmentRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Not found"));
+
+        if (existing.getStatus() == Appointment.Status.complete) {
+            throw new RuntimeException("Appointment is already completed and cannot be modified.");
+        }
+
         User user = userRepo.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
         checkAuthorization(user, existing);
         existing.setPatientName(request.getPatientName());
@@ -115,6 +125,11 @@ public class AppointmentService {
     public AppointmentResponse changeStatus(Long id, Appointment.Status status, String email) {
         Appointment apt = appointmentRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Appointment not found"));
+
+        if (apt.getStatus() == Appointment.Status.complete) {
+            throw new RuntimeException("Appointment is already completed and cannot be modified.");
+        }
+
         User user = userRepo.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
         checkAuthorization(user, apt);
         apt.setStatus(status);
