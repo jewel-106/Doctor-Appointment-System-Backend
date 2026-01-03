@@ -10,6 +10,8 @@ import java.util.List;
 public interface DoctorTimeSlotRepository extends JpaRepository<DoctorTimeSlot, Long> {
     List<DoctorTimeSlot> findByDoctorIdAndAvailableDateAndIsBookedFalse(Long doctorId, LocalDate date);
 
+    List<DoctorTimeSlot> findByDoctorIdAndAvailableDate(Long doctorId, LocalDate date);
+
     List<DoctorTimeSlot> findByDoctorIdAndIsBookedFalse(Long doctorId);
 
     List<DoctorTimeSlot> findByDoctorId(Long doctorId);
