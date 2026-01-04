@@ -14,8 +14,8 @@ public class DoctorController {
     private final DoctorService doctorService;
 
     @GetMapping
-    public List<Doctor> getAll(@RequestParam(required = false) Long hospitalId) {
-        return doctorService.getAll(hospitalId);
+    public List<Doctor> getAll() {
+        return doctorService.getAll();
     }
 
     @PatchMapping("/{id}/status")

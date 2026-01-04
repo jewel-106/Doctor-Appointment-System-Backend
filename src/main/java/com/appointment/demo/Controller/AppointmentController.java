@@ -19,10 +19,9 @@ public class AppointmentController {
     private final AuthenticationService authService;
 
     @GetMapping
-    public List<AppointmentResponse> getAll(@RequestHeader("Authorization") String token,
-            @RequestParam(required = false) Long hospitalId) {
+    public List<AppointmentResponse> getAll(@RequestHeader("Authorization") String token) {
         String email = authService.getEmailFromToken(token.replace("Bearer ", ""));
-        return appointmentService.getAppointmentsForUser(email, hospitalId);
+        return appointmentService.getAppointmentsForUser(email);
     }
 
     @GetMapping("/{id}")
