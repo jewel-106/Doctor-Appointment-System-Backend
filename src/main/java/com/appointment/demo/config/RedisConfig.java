@@ -11,9 +11,11 @@ import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSeriali
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+
 import java.time.Duration;
 
 @Configuration
@@ -30,20 +32,7 @@ public class RedisConfig {
         template.setHashKeySerializer(new StringRedisSerializer());
         
         // Use JSON serializer for values
-        // Configure ObjectMapper for JSON serializer
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule());
-        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        // This allows deserialization to concrete types when the type information is available
-        // Note: GenericJackson2JsonRedisSerializer handles type hints automatically if used with default constructor, 
-        // but when passing a custom ObjectMapper, we might need to be careful. 
-        // Actually, GenericJackson2JsonRedisSerializer(ObjectMapper) is deprecated or works differently in newer versions depending on spring data redis version.
-        // Let's use the safer approach provided by GenericJackson2JsonRedisSerializer's constructors or builder if available, 
-        // OR simply configure the object mapper and pass it.
-        // Spring Boot's default ObjectMapper usually has these modules, but we are creating a fresh one implicitly?
-        // Actually, let's use the constructor that accepts ObjectMapper.
-
-        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(objectMapper);
+        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(createObjectMapper());
 
         template.setValueSerializer(serializer);
         template.setHashValueSerializer(serializer);
@@ -54,10 +43,7 @@ public class RedisConfig {
 
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule());
-        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(objectMapper);
+        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(createObjectMapper());
 
         RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(10)) // 10 minutes TTL
@@ -72,5 +58,29 @@ public class RedisConfig {
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(config)
                 .build();
+    }
+
+    private ObjectMapper createObjectMapper() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        
+        // findAndRegisterModules finds and registers all modules found on the classpath
+        // This includes JavaTimeModule for dates and ParameterNamesModule for Records/Constructors
+        objectMapper.findAndRegisterModules();
+        
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        
+        // Activate default typing properly for Records
+        // Standard NON_FINAL ignores 'final' classes, and Records are implicitly final.
+        // So we must use EVERYTHING (or similar) to ensure Records get type info stored in Redis.
+        objectMapper.activateDefaultTyping(
+                BasicPolymorphicTypeValidator.builder()
+                        .allowIfBaseType(Object.class)
+                        .build(),
+                ObjectMapper.DefaultTyping.EVERYTHING,
+                JsonTypeInfo.As.PROPERTY
+        );
+
+        
+        return objectMapper;
     }
 }
