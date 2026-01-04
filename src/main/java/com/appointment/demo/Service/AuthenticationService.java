@@ -28,7 +28,9 @@ public class AuthenticationService {
     private final JwtService jwtService;
     private final AuthenticationManager authManager;
     private final OtpRepository otpRepo;
+    private final OtpRepository otpRepo;
     private final DoctorRepository doctorRepo;
+    private final com.appointment.demo.Repository.AdminRepository adminRepo;
 
     public AuthResponse register(RegisterRequest request) {
         if (userRepo.findByEmail(request.email()).isPresent()) {
@@ -43,6 +45,17 @@ public class AuthenticationService {
                 .specialty(request.role() == Role.DOCTOR ? request.specialty() : null)
                 .build();
         userRepo.save(user);
+
+        // Create Admin entry if role is ADMIN
+        if (user.getRole() == Role.ADMIN) {
+            com.appointment.demo.model.Admin admin = com.appointment.demo.model.Admin.builder()
+                    .userId(user.getId())
+                    .name(user.getName())
+                    .phone(user.getPhone())
+                    .user(user)
+                    .build();
+            adminRepo.save(admin);
+        }
         var jwt = jwtService.generateToken(user);
         Long profileId = null;
         if (user.getRole() == Role.DOCTOR) {

@@ -24,13 +24,18 @@ public class AppointmentService {
     private final UserRepository userRepo;
     private final DoctorTimeSlotRepository slotRepo;
 
-    public List<AppointmentResponse> getAppointmentsForUser(String email) {
+    public List<AppointmentResponse> getAppointmentsForUser(String email, Long hospitalId) {
         User user = userRepo.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException(
                         "We couldn't find your account details. Please try logging in again."));
         List<Appointment> appointments;
         if (user.getRole() == Role.SUPER_ADMIN) {
-            appointments = appointmentRepo.findAll();
+            if (hospitalId != null) {
+                // Super Admin filtering by hospital
+                appointments = appointmentRepo.findByDoctor_User_Hospital_Id(hospitalId);
+            } else {
+                appointments = appointmentRepo.findAll();
+            }
         } else if (user.getRole() == Role.ADMIN) {
             if (user.getHospital() != null) {
                 appointments = appointmentRepo.findByDoctor_User_Hospital_Id(user.getHospital().getId());
