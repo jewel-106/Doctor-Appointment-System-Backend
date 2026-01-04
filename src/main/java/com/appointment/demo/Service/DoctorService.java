@@ -6,16 +6,24 @@ import com.appointment.demo.model.User;
 import com.appointment.demo.Repository.DoctorRepository;
 import com.appointment.demo.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import java.util.List;
+
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class DoctorService {
     private final DoctorRepository doctorRepo;
+    
+    @Cacheable(value = "doctors", key = "'allDoctors'")
+    public List<Doctor> getAll() {
+        System.out.println("Fetching all doctors from database...");
     private final UserRepository userRepo;
 
     public List<Doctor> getAll(Long hospitalId) {
@@ -45,12 +53,16 @@ public class DoctorService {
         }
         return doctorRepo.findAll();
     }
+    
+    @CacheEvict(value = "doctors", allEntries = true)
 
     public Doctor updateStatus(Long id, boolean active) {
         Doctor doctor = doctorRepo.findById(id).orElseThrow(() -> new RuntimeException("Doctor not found"));
         doctor.setActive(active);
         return doctorRepo.save(doctor);
     }
+    
+    @CacheEvict(value = "doctors", allEntries = true)
 
     public Doctor updateDoctor(Long id, Doctor updatedDoctor) {
         Doctor doctor = doctorRepo.findById(id).orElseThrow(() -> new RuntimeException("Doctor not found"));
