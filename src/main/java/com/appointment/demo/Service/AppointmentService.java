@@ -12,6 +12,8 @@ import com.appointment.demo.Repository.DoctorRepository;
 import com.appointment.demo.Repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.ArrayList;
@@ -24,6 +26,7 @@ public class AppointmentService {
     private final UserRepository userRepo;
     private final DoctorTimeSlotRepository slotRepo;
 
+    @Cacheable(value = "appointments", key = "#email")
     public List<AppointmentResponse> getAppointmentsForUser(String email) {
         User user = userRepo.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException(
@@ -70,6 +73,7 @@ public class AppointmentService {
                         "We couldn't find the appointment you're looking for. It might have been removed."));
     }
 
+    @CacheEvict(value = "appointments", allEntries = true)
     public AppointmentResponse create(Appointment request) {
         if (appointmentRepo.existsByDoctorIdAndAppointmentDateAndAppointmentTime(
                 request.getDoctorId(), request.getAppointmentDate(), request.getAppointmentTime())) {
@@ -90,6 +94,7 @@ public class AppointmentService {
         return toResponse(saved);
     }
 
+    @CacheEvict(value = "appointments", allEntries = true)
     public AppointmentResponse update(Long id, Appointment request, String email) {
         Appointment existing = appointmentRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Not found"));
@@ -122,6 +127,7 @@ public class AppointmentService {
     }
 
     @Transactional
+    @CacheEvict(value = "appointments", allEntries = true)
     public AppointmentResponse changeStatus(Long id, Appointment.Status status, String email) {
         Appointment apt = appointmentRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Appointment not found"));
@@ -136,6 +142,7 @@ public class AppointmentService {
         return toResponse(appointmentRepo.save(apt));
     }
 
+    @CacheEvict(value = "appointments", allEntries = true)
     public void delete(Long id, String email) {
         Appointment apt = appointmentRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Appointment not found"));
