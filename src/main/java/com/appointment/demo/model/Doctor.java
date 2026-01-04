@@ -1,9 +1,12 @@
 package com.appointment.demo.model;
 import jakarta.persistence.*;
 import lombok.*;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 @Entity
 @Table(name = "n_doctors")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Doctor {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
