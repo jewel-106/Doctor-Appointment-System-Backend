@@ -11,6 +11,9 @@ import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSeriali
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.time.Duration;
 
 @Configuration
@@ -27,8 +30,23 @@ public class RedisConfig {
         template.setHashKeySerializer(new StringRedisSerializer());
         
         // Use JSON serializer for values
-        template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
-        template.setHashValueSerializer(new GenericJackson2JsonRedisSerializer());
+        // Configure ObjectMapper for JSON serializer
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        // This allows deserialization to concrete types when the type information is available
+        // Note: GenericJackson2JsonRedisSerializer handles type hints automatically if used with default constructor, 
+        // but when passing a custom ObjectMapper, we might need to be careful. 
+        // Actually, GenericJackson2JsonRedisSerializer(ObjectMapper) is deprecated or works differently in newer versions depending on spring data redis version.
+        // Let's use the safer approach provided by GenericJackson2JsonRedisSerializer's constructors or builder if available, 
+        // OR simply configure the object mapper and pass it.
+        // Spring Boot's default ObjectMapper usually has these modules, but we are creating a fresh one implicitly?
+        // Actually, let's use the constructor that accepts ObjectMapper.
+
+        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(objectMapper);
+
+        template.setValueSerializer(serializer);
+        template.setHashValueSerializer(serializer);
         
         template.afterPropertiesSet();
         return template;
@@ -36,6 +54,11 @@ public class RedisConfig {
 
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(objectMapper);
+
         RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(10)) // 10 minutes TTL
                 .disableCachingNullValues()
@@ -43,7 +66,7 @@ public class RedisConfig {
                         RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer())
                 )
                 .serializeValuesWith(
-                        RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer())
+                        RedisSerializationContext.SerializationPair.fromSerializer(serializer)
                 );
 
         return RedisCacheManager.builder(connectionFactory)
